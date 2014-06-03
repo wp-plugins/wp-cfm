@@ -43,12 +43,15 @@ class WPCFM_Ajax
             // Save the option
             update_option( 'wpcfm_settings', $settings );
 
-            // Delete any unused bundle files
+            // Delete orphan bundles
             $new_bundles = $this->helper->get_bundle_names();
             $to_delete = array_diff( $old_bundles, $new_bundles );
             foreach ( $to_delete as $bundle_name ) {
                 $this->readwrite->delete_file( $bundle_name );
             }
+
+            // Store WP-CFM settings to file
+            //$this->readwrite->write_file( '_bundles', $settings );
 
             echo __( 'Settings saved', 'wpcfm' );
         }
@@ -71,17 +74,7 @@ class WPCFM_Ajax
     function push_settings() {
         if ( current_user_can( 'manage_options' ) ) {
             $bundle_name = stripslashes( $_POST['data']['bundle_name'] );
-
-            if ( 'all' == $bundle_name ) {
-                $bundle_names = $this->helper->get_bundle_names();
-                foreach ( $bundle_names as $bundle_name ) {
-                    $this->readwrite->push_bundle( $bundle_name );
-                }
-            }
-            else {
-                $this->readwrite->push_bundle( $bundle_name );
-            }
-
+            $this->readwrite->push_bundle( $bundle_name );
             echo __( 'Push successful', 'wpcfm' );
         }
         exit;
@@ -94,17 +87,7 @@ class WPCFM_Ajax
     function pull_settings() {
         if ( current_user_can( 'manage_options' ) ) {
             $bundle_name = stripslashes( $_POST['data']['bundle_name'] );
-
-            if ( 'all' == $bundle_name ) {
-                $bundle_names = $this->helper->get_bundle_names();
-                foreach ( $bundle_names as $bundle_name ) {
-                    $this->readwrite->pull_bundle( $bundle_name );
-                }
-            }
-            else {
-                $this->readwrite->pull_bundle( $bundle_name );
-            }
-
+            $this->readwrite->pull_bundle( $bundle_name );
             echo __( 'Pull successful', 'wpcfm' );
         }
         exit;

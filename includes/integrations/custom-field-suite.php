@@ -5,8 +5,10 @@ if ( ! is_plugin_active( 'custom-field-suite/cfs.php' ) ) {
     return;
 }
 
+
 // Registration hook
 add_filter( 'wpcfm_configuration_items', 'cfs_configuration_items' );
+add_filter( 'wpcfm_pull_callback', 'cfs_pull_callback', 10, 2 );
 
 
 /**
@@ -14,13 +16,30 @@ add_filter( 'wpcfm_configuration_items', 'cfs_configuration_items' );
  */
 function cfs_configuration_items( $items ) {
 
-    $items['cfs_field_groups'] = array(
-        'value'     => cfs_get_field_groups(),
-        'group'     => 'Custom Field Suite',
-        'callback'   => 'cfs_import_field_groups',
-    );
+    $field_groups = cfs_get_field_groups();
+
+    foreach ( $field_groups as $name => $group ) {
+        $value = json_encode( $group );
+        $items[ "cfs_field_group_$name" ] = array(
+            'value'     => $value,
+            'group'     => 'Custom Field Suite',
+            'callback'   => 'cfs_import_field_group',
+        );
+    }
 
     return $items;
+}
+
+
+/**
+ * When Pulling configuration, make sure that all items
+ * beginning with "cfs_field_group" are using the right callback
+ */
+function cfs_pull_callback( $callback, $callback_params ) {
+    if ( false !== strpos( $callback_params['name'], 'cfs_field_group' ) ) {
+        $callback = 'cfs_import_field_group';
+    }
+    return $callback;
 }
 
 
@@ -30,12 +49,17 @@ function cfs_configuration_items( $items ) {
 function cfs_get_field_groups() {
     global $cfs, $wpdb;
 
+    $field_groups = array();
     $field_group_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'cfs'" );
-    $field_groups = $cfs->field_group->export( array(
+    $export = $cfs->field_group->export( array(
         'field_groups' => $field_group_ids,
     ) );
 
-    return json_encode( $field_groups );
+    foreach ( $export as $field_group ) {
+        $field_groups[ $field_group['post_name'] ] = $field_group;
+    }
+
+    return $field_groups;
 }
 
 
@@ -46,7 +70,7 @@ function cfs_get_field_groups() {
  * @param string $params['old_value'] The previous settings data
  * @param string $params['new_value'] The new settings data
  */
-function cfs_import_field_groups( $params ) {
+function cfs_import_field_group( $params ) {
     global $cfs;
 
     $import_code = array();
@@ -55,37 +79,32 @@ function cfs_import_field_groups( $params ) {
     $next_field_id = (int) get_option( 'cfs_next_field_id' );
 
     // Store old field names & IDs
-    $old_field_groups = array();
-
-    foreach ( $old_value as $field_group ) {
-        $old_fields = array();
-        foreach ( $field_group['cfs_fields'] as $field ) {
-            $old_fields[ $field['name'] ] = $field['id'];
+    $old_field_ids = array();
+    if ( ! empty( $old_value ) ) {
+        foreach ( $old_value['cfs_fields'] as $field ) {
+            $old_field_ids[ $field['name'] ] = $field['id'];
         }
-        $old_field_groups[ $field_group['post_name'] ] = $old_fields;
     }
 
     // Change the field IDs (if needed), then save
-    foreach ( $new_value as $field_group ) {
-        $group_name = $field_group['post_name'];
+    $field_group = $new_value;
 
-        foreach ( $field_group['cfs_fields'] as $key => $field ) {
-            $field_name = $field['name'];
+    foreach ( $field_group['cfs_fields'] as $key => $field ) {
+        $field_name = $field['name'];
 
-            // Preserve the old field ID
-            if ( isset( $old_field_groups[ $group_name ][ $field_name ] ) ) {
-                $field_id = $old_field_groups[ $group_name ][ $field_name ];
-                $field_group['cfs_fields'][ $key ]['id'] = $field_id;
-            }
-            // Otherwise, increment the field ID counter
-            else {
-                $field_group['cfs_fields'][ $key ]['id'] = $next_field_id;
-                $next_field_id++;
-            }
+        // Preserve the old field ID
+        if ( isset( $old_field_ids[ $field_name ] ) ) {
+            $field_id = $old_field_ids[ $field_name ];
+            $field_group['cfs_fields'][ $key ]['id'] = $field_id;
         }
-
-        cfs_save_field_group( $field_group );
+        // Otherwise, increment the field ID counter
+        else {
+            $field_group['cfs_fields'][ $key ]['id'] = $next_field_id;
+            $next_field_id++;
+        }
     }
+
+    cfs_save_field_group( $field_group );
 
     update_option( 'cfs_next_field_id', $next_field_id );
 }
