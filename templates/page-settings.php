@@ -15,7 +15,7 @@ $configuration = $this->helper->group_items( $configuration );
 
 <div class="wrap">
     <h2>
-        Configuration Management <span>by <a href="http://forumone.com/" target="_blank">Forum One Communications</a></span>
+        Configuration Management <span>by <a href="http://forumone.com/" target="_blank">Forum One</a></span>
     </h2>
 
     <?php if ( !empty ( $this->readwrite->error ) ) : ?>
@@ -54,8 +54,8 @@ $configuration = $this->helper->group_items( $configuration );
                 <div class="bundle-actions">
                     <span class="no-actions">Save to see actions</span>
                     <a class="button diff-bundle" title="Compare differences"><?php _e( 'Diff', 'wpcfm' ); ?></a> &nbsp;
-                    <a class="button push-bundle" title="Write database changes to the filesystem"><?php _e( 'Push', 'wpcfm' ); ?></a> &nbsp;
-                    <a class="button pull-bundle" title="Import file changes into the database"><?php _e( 'Pull', 'wpcfm' ); ?></a>
+                    <a class="button push-bundle disabled" title="Write database changes to the filesystem"><?php _e( 'Push', 'wpcfm' ); ?></a> &nbsp;
+                    <a class="button pull-bundle disabled" title="Import file changes into the database"><?php _e( 'Pull', 'wpcfm' ); ?></a>
                 </div>
                 <div class="bundle-toggle">New bundle</div>
                 <div class="clear"></div>
@@ -68,7 +68,8 @@ $configuration = $this->helper->group_items( $configuration );
                     <?php foreach ( $configuration as $group => $config ) : ?>
                         <optgroup label="<?php echo $group; ?>">
                             <?php foreach ( $config as $key => $data ) : ?>
-                            <option value="<?php echo $key; ?>"><?php echo $key; ?></option>
+                            <?php $label = isset( $data['label'] ) ? $data['label'] : $key ; ?>
+                            <option value="<?php echo $key; ?>"><?php echo $label; ?></option>
                             <?php endforeach; ?>
                         </optgroup>
                     <?php endforeach; ?>

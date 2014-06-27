@@ -13,8 +13,8 @@ class WPCFM_Readwrite
         $this->registry = new WPCFM_Registry();
         $this->helper = new WPCFM_Helper();
 
-        // Create the "wp-cfm" folder
-        $this->folder = WP_CONTENT_DIR . '/config';
+        // Create the "config" folder
+        $this->folder = WPCFM_CONFIG_DIR;
 
         if ( ! is_dir( $this->folder ) ) {
             if ( ! is_writable( $this->folder ) ) {
@@ -44,14 +44,28 @@ class WPCFM_Readwrite
         // Import each bundle into DB
         foreach ( $bundles as $bundle_name ) {
             $data = $this->read_file( $bundle_name );
+            $bundle_label = $data['.label'];
+            unset( $data['.label'] );
+
             $this->write_db( $bundle_name, $data );
 
             // Update the bundle's config options (using the pull file)
+            $exists = false;
             foreach ( $settings['bundles'] as $key => $bundle_settings ) {
                 if ( $bundle_name == $bundle_settings['name'] ) {
+                    $settings['bundles'][ $key ]['label'] = $bundle_label;
                     $settings['bundles'][ $key ]['config'] = array_keys( $data );
+                    $exists = true;
                     break;
                 }
+            }
+
+            if ( ! $exists ) {
+                $settings['bundles'][] = array(
+                    'label' => $bundle_label,
+                    'name' => $bundle_name,
+                    'config' => array_keys( $data ),
+                );
             }
         }
 
@@ -69,6 +83,10 @@ class WPCFM_Readwrite
 
         foreach ( $bundles as $bundle_name ) {
             $data = $this->read_db( $bundle_name );
+
+            // Append the bundle label
+            $bundle_meta = $this->helper->get_bundle_by_name( $bundle_name );
+            $data['.label'] = $bundle_meta['label'];
 
             // JSON_PRETTY_PRINT is only for PHP 5.4+
             $data = version_compare( PHP_VERSION, '5.4.0', '>=' ) ?
@@ -108,6 +126,9 @@ class WPCFM_Readwrite
             $file_bundle = $this->read_file( $bundle_name );
             $db_bundle = $this->read_db( $bundle_name );
         }
+
+        // Remove the .label
+        unset( $file_bundle['.label'] );
 
         if ( $file_bundle == $db_bundle ) {
             $return['error'] = __( 'Both versions are identical', 'wpcfm' );
@@ -181,9 +202,11 @@ class WPCFM_Readwrite
             }
         }
 
-        foreach ( $all_config as $key => $config ) {
-            if ( in_array( $key, $bundle_config ) ) {
-                $output[ $key ] = $config['value'];
+        if ( isset( $bundle_config ) ) {
+            foreach ( $all_config as $key => $config ) {
+                if ( in_array( $key, $bundle_config ) ) {
+                    $output[ $key ] = $config['value'];
+                }
             }
         }
 
