@@ -20,10 +20,19 @@ class WPCFM_Registry
 
         $items = array();
 
-        $sql = "
-        SELECT option_name, option_value FROM $wpdb->options
-        WHERE option_name NOT LIKE '_transient%' AND option_name NOT LIKE '_site_transient%'
-        ORDER BY option_name";
+        if ( WPCFM()->options->is_network ) {
+            $sql = "
+            SELECT meta_key as option_name, meta_value as option_value FROM $wpdb->sitemeta
+            WHERE meta_key NOT LIKE '_transient%' AND meta_key NOT LIKE '_site_transient%'
+            ORDER BY meta_key";
+        }
+        else {
+            $sql = "
+            SELECT option_name, option_value FROM $wpdb->options
+            WHERE option_name NOT LIKE '_transient%' AND option_name NOT LIKE '_site_transient%'
+            ORDER BY option_name";
+        }
+
         $results = $wpdb->get_results( $sql );
 
         foreach ( $results as $result ) {
@@ -62,5 +71,41 @@ class WPCFM_Registry
         }
 
         return $items;
+    }
+
+
+    /**
+     * Get configuration options stored in multiple bundles
+     * @since 1.3
+     */
+    function get_duplicates() {
+        $settings = WPCFM()->options->get( 'wpcfm_settings' );
+        $settings = json_decode( $settings, true );
+
+        if ( empty( $settings['bundles'] ) ) {
+            return array();
+        }
+
+        $result = array();
+        foreach ( $settings['bundles'] as $bundle ) {
+            foreach ( $bundle['config'] as $option ) {
+                if ( empty( $result[ $option ] ) ) {
+                    $result[ $option ] = array( $bundle['name'] );
+                }
+                else {
+                    $result[ $option ][] = $bundle['name'];
+                }
+            }
+        }
+
+        foreach ( $result as $option => $bundles ) {
+            if ( 1 == count( $bundles ) ) {
+                unset( $result[ $option ] );
+            }
+            else {
+                sort( $result[ $option ] );
+            }
+        }
+        return $result;
     }
 }

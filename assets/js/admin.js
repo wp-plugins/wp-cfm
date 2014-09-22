@@ -15,7 +15,11 @@
 
                 if (obj.is_file) {
                     $this.find('.pull-bundle').removeClass('disabled');
+                    $this.find('.download-bundle').attr('href', obj.url);
+                    $this.find('.download-bundle').attr('download', obj.url.split('/').reverse()[0]);
+                    $this.find('.download-bundle').removeClass('hidden');
                 }
+
                 if (obj.is_db) {
                     $this.find('.push-bundle').removeClass('disabled');
                 }
@@ -148,6 +152,13 @@
                     $('.wpcfm-diff').prettyTextDiff({
                         cleanup: true
                     });
+                    var lines = $('.wpcfm-diff').html().split('<br>');
+                    for (var i = 0; i < lines.length; i++) {
+                        if (lines[i].indexOf('<del>') !== -1 || lines[i].indexOf('<ins>') !== -1) {
+                            lines[i] = '<span class="changedline">' + lines[i] + '</span>';
+                        }
+                    }
+                    $('.wpcfm-diff').html(lines.join('<br>'));
                 }
                 $('.media-modal').show();
                 $('.media-modal-backdrop').show();

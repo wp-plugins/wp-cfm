@@ -2,16 +2,12 @@
 
 class WPCFM_Readwrite
 {
-    public $registry;
-    public $helper;
+
     public $folder;
     public $error;
 
-    function __construct() {
 
-        // Includes
-        $this->registry = new WPCFM_Registry();
-        $this->helper = new WPCFM_Helper();
+    function __construct() {
 
         // Create the "config" folder
         $this->folder = WPCFM_CONFIG_DIR;
@@ -35,11 +31,14 @@ class WPCFM_Readwrite
      * @param string $bundle_name The bundle name (or "all")
      */
     function pull_bundle( $bundle_name ) {
-        $bundles = ( 'all' == $bundle_name ) ? $this->helper->get_bundle_names() : array( $bundle_name );
+        $bundles = ( 'all' == $bundle_name ) ? WPCFM()->helper->get_bundle_names() : array( $bundle_name );
 
         // Retrieve the settings
-        $settings = get_option( 'wpcfm_settings' );
+        $settings = WPCFM()->options->get( 'wpcfm_settings' );
         $settings = json_decode( $settings, true );
+
+        // Is this really needed (and is it a good place?)
+        if (!is_array($settings) || !isset($settings['bundles'])) $settings = array('bundles' => array());
 
         // Import each bundle into DB
         foreach ( $bundles as $bundle_name ) {
@@ -68,9 +67,8 @@ class WPCFM_Readwrite
                 );
             }
         }
-
         // Write the settings
-        update_option( 'wpcfm_settings', json_encode( $settings ) );
+        WPCFM()->options->update( 'wpcfm_settings', json_encode( $settings ) );
     }
 
 
@@ -79,13 +77,13 @@ class WPCFM_Readwrite
      * @param string $bundle_name The bundle name (or "all")
      */
     function push_bundle( $bundle_name ) {
-        $bundles = ( 'all' == $bundle_name ) ? $this->helper->get_bundle_names() : array( $bundle_name );
+        $bundles = ( 'all' == $bundle_name ) ? WPCFM()->helper->get_bundle_names() : array( $bundle_name );
 
         foreach ( $bundles as $bundle_name ) {
             $data = $this->read_db( $bundle_name );
 
             // Append the bundle label
-            $bundle_meta = $this->helper->get_bundle_by_name( $bundle_name );
+            $bundle_meta = WPCFM()->helper->get_bundle_by_name( $bundle_name );
             $data['.label'] = $bundle_meta['label'];
 
             // JSON_PRETTY_PRINT is only for PHP 5.4+
@@ -109,7 +107,7 @@ class WPCFM_Readwrite
 
         // Diff all bundles
         if ( 'all' == $bundle_name ) {
-            $bundle_names = $this->helper->get_bundle_names();
+            $bundle_names = WPCFM()->helper->get_bundle_names();
             foreach ( $bundle_names as $bundle_name ) {
 
                 // Retrieve each bundle
@@ -144,12 +142,34 @@ class WPCFM_Readwrite
 
 
     /**
+     * Returns the bundle filename.
+     * @return string
+     */
+
+    function bundle_filename( $bundle_name ) {
+        $filename = "$this->folder/$bundle_name.json";
+
+        if ( is_multisite() ) {
+            if ( WPCFM()->options->is_network ) {
+                $filename = "$this->folder/network-$bundle_name.json";
+            }
+            else {
+                $filename = "$this->folder/blog" . get_current_blog_id() . "-$bundle_name.json";
+            }
+        }
+
+        return $filename;
+    }
+
+
+    /**
      * Load the file bundle
      * @return array
      */
     function read_file( $bundle_name ) {
-        if ( is_readable( "$this->folder/$bundle_name.json" ) ) {
-            $contents = file_get_contents( "$this->folder/$bundle_name.json" );
+        $filename = $this->bundle_filename( $bundle_name );
+        if ( is_readable( $filename ) ) {
+            $contents = file_get_contents( $filename );
             return json_decode( $contents, true );
         }
         return array();
@@ -160,7 +180,7 @@ class WPCFM_Readwrite
      * Write the bundle to file
      */
     function write_file( $bundle_name, $data ) {
-        $filename = "$this->folder/$bundle_name.json";
+        $filename = $this->bundle_filename( $bundle_name );
         if ( file_exists( $filename ) ) {
             if ( is_writable( $filename ) ) {
                 return file_put_contents( $filename, $data );
@@ -177,8 +197,9 @@ class WPCFM_Readwrite
      * Delete a bundle file
      */
     function delete_file( $bundle_name ) {
-        if ( is_writable( "$this->folder/$bundle_name.json" ) ) {
-            return unlink( "$this->folder/$bundle_name.json" );
+        $filename = $this->bundle_filename( $bundle_name );
+        if ( is_writable( $filename ) ) {
+            return unlink( $filename );
         }
         return false;
     }
@@ -191,9 +212,9 @@ class WPCFM_Readwrite
     function read_db( $bundle_name ) {
 
         $output = array();
-        $all_config = $this->registry->get_configuration_items();
+        $all_config = WPCFM()->registry->get_configuration_items();
 
-        $opts = get_option( 'wpcfm_settings' );
+        $opts = WPCFM()->options->get( 'wpcfm_settings' );
         $opts = json_decode( $opts, true );
         foreach ( $opts['bundles'] as $bundle ) {
             if ( $bundle['name'] == $bundle_name ) {
@@ -222,12 +243,17 @@ class WPCFM_Readwrite
     function write_db( $bundle_name, $file_data ) {
 
         $success = false;
-        $db_data = $this->registry->get_configuration_items();
+        $db_data = WPCFM()->registry->get_configuration_items();
 
         foreach ( $file_data as $key => $val ) {
 
             // Set a default group if needed
             $group = isset( $db_data[ $key ]['group'] ) ? $db_data[ $key ]['group'] : __( 'WP Options', 'wpcfm' );
+
+            // Make sure "old_value" exists
+            if ( empty( $db_data[ $key ]['value'] ) ) {
+                $db_data[ $key ]['value'] = '';
+            }
 
             // Create the callback params
             $callback_params = array(
@@ -266,6 +292,6 @@ class WPCFM_Readwrite
     function callback_wp_options( $params ) {
         $option_name = $params['name'];
         $option_value = maybe_unserialize( $params['new_value'] );
-        update_option( $option_name, $option_value );
+        WPCFM()->options->update( $option_name, $option_value );
     }
 }

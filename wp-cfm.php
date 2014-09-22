@@ -3,7 +3,7 @@
 Plugin Name: WP-CFM
 Plugin URI: http://forumone.com/
 Description: WordPress Configuration Management
-Version: 1.2
+Version: 1.3
 Author: Forum One
 Author URI: http://forumone.com/
 License: GPLv2
@@ -24,24 +24,57 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-if ( ! defined( 'ABSPATH' ) ) exit;
+defined( 'ABSPATH' ) or exit;
 
 
-class WPCFM
+class WPCFM_Core
 {
+
     public $readwrite;
     public $registry;
+    public $options;
+    public $helper;
+    private static $instance;
+
 
     function __construct() {
 
         // setup variables
-        define( 'WPCFM_VERSION', '1.2' );
+        define( 'WPCFM_VERSION', '1.3' );
         define( 'WPCFM_DIR', dirname( __FILE__ ) );
         define( 'WPCFM_CONFIG_DIR', WP_CONTENT_DIR . '/config' );
+        define( 'WPCFM_CONFIG_URL', WP_CONTENT_URL . '/config' );
         define( 'WPCFM_URL', plugins_url( basename( dirname( __FILE__ ) ) ) );
 
         // WP is loaded
         add_action( 'init', array( $this, 'init' ) );
+    }
+
+
+    /**
+     * Initialize the singleton
+     */
+    public static function instance() {
+        if ( ! isset( self::$instance ) ) {
+            self::$instance = new WPCFM_Core;
+        }
+        return self::$instance;
+    }
+
+
+    /**
+     * Prevent cloning
+     */
+    function __clone() {
+
+    }
+
+
+    /**
+     * Prevent unserializing
+     */
+    function __wakeup() {
+
     }
 
 
@@ -55,10 +88,11 @@ class WPCFM
 
         // hooks
         add_action( 'admin_menu', array( $this, 'admin_menu' ) );
+        add_action( 'network_admin_menu', array( $this, 'network_admin_menu' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'admin_scripts' ) );
 
         // includes
-        foreach ( array( 'readwrite', 'registry', 'helper', 'ajax' ) as $class ) {
+        foreach ( array( 'options', 'readwrite', 'registry', 'helper', 'ajax' ) as $class ) {
             include( WPCFM_DIR . "/includes/class-$class.php" );
         }
 
@@ -67,6 +101,7 @@ class WPCFM
             include( WPCFM_DIR . '/includes/class-wp-cli.php' );
         }
 
+        $this->options = new WPCFM_Options();
         $this->readwrite = new WPCFM_Readwrite();
         $this->registry = new WPCFM_Registry();
         $this->helper = new WPCFM_Helper();
@@ -86,10 +121,18 @@ class WPCFM
 
 
     /**
-     * Register the FacetWP settings page
+     * Register the settings page
      */
     function admin_menu() {
         add_options_page( 'WP-CFM', 'WP-CFM', 'manage_options', 'wpcfm', array( $this, 'settings_page' ) );
+    }
+
+
+    /**
+     * Register the multi-site settings page
+     */
+    function network_admin_menu() {
+        add_submenu_page( 'settings.php', 'WP-CFM', 'WP-CFM', 'manage_options', 'wpcfm', array( $this, 'settings_page' ) );
     }
 
 
@@ -127,4 +170,13 @@ class WPCFM
     }
 }
 
-$wp_cfm = new WPCFM();
+WPCFM();
+
+
+/**
+ * Allow direct access to WPCFM classes
+ * For example, use WPCFM()->options to access WPCFM_Options
+ */
+function WPCFM() {
+    return WPCFM_Core::instance();
+}
