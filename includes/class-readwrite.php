@@ -13,11 +13,8 @@ class WPCFM_Readwrite
         $this->folder = WPCFM_CONFIG_DIR;
 
         if ( ! is_dir( $this->folder ) ) {
-            if ( ! is_writable( $this->folder ) ) {
+            if ( ! wp_mkdir_p( $this->folder ) ) {
                 $this->error = __( 'Create wp-content/config/ and grant write access', 'wpcfm' );
-            }
-            else {
-                mkdir( $this->folder );
             }
         }
         elseif ( ! is_writable( $this->folder ) ) {
