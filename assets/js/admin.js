@@ -27,13 +27,7 @@
                 $('.wpcfm-bundles').append($this);
 
                 // Trigger jQuery Multi Select
-                $this.find('.bundle-select').multipleSelect({
-                    width: 600,
-                    multiple: true,
-                    multipleWidth: 280,
-                    keepOpen: true,
-                    isOpen: true
-                });
+                $this.find('.bundle-select').multiSelect();
             });
         }, 'json');
 
@@ -41,7 +35,6 @@
         // Save
         $(document).on('click', '.wpcfm-save', function() {
             $('.wpcfm-response').html('Saving...');
-            $('.wpcfm-response').show();
 
             var data = {
                 'bundles': []
@@ -53,7 +46,7 @@
                 var obj = {
                     'label': $this.find('.bundle-label').val(),
                     'name': $this.find('.bundle-name').val(),
-                    'config': $this.find('.bundle-select').multipleSelect('getSelects')
+                    'config': $this.find('.bundle-select').val()
                 };
 
                 data.bundles.push(obj);
@@ -76,13 +69,7 @@
             $('.wpcfm-bundles').append(html);
 
             var $row = $('.wpcfm-bundles .bundle-row:last');
-            $row.find('.bundle-select').multipleSelect({
-                width: 600,
-                multiple: true,
-                multipleWidth: 280,
-                keepOpen: true,
-                isOpen: true
-            });
+            $row.find('.bundle-select').multiSelect();
             $row.addClass('unsaved');
             $row.find('.bundle-toggle').trigger('click');
         });
@@ -107,7 +94,6 @@
         // "Push" button
         $(document).on('click', '.push-bundle:not(.disabled)', function() {
             $('.wpcfm-response').html('Exporting to file...');
-            $('.wpcfm-response').show();
             var bundle_name = $(this).closest('.bundle-row').attr('data-bundle');
 
             $.post(ajaxurl, {
@@ -123,7 +109,6 @@
         $(document).on('click', '.pull-bundle:not(.disabled)', function() {
             if (confirm('Import file settings to DB?')) {
                 $('.wpcfm-response').html('Importing into DB...');
-                $('.wpcfm-response').show();
                 var bundle_name = $(this).closest('.bundle-row').attr('data-bundle');
 
                 $.post(ajaxurl, {
@@ -149,9 +134,8 @@
                 else {
                     $('.wpcfm-diff .original').text(response.file);
                     $('.wpcfm-diff .changed').text(response.db);
-                    $('.wpcfm-diff').prettyTextDiff({
-                        cleanup: true
-                    });
+                    $('.wpcfm-diff').prettyTextDiff();
+                    /*
                     var lines = $('.wpcfm-diff').html().split('<br>');
                     for (var i = 0; i < lines.length; i++) {
                         if (lines[i].indexOf('<del>') !== -1 || lines[i].indexOf('<ins>') !== -1) {
@@ -159,6 +143,7 @@
                         }
                     }
                     $('.wpcfm-diff').html(lines.join('<br>'));
+                    */
                 }
                 $('.media-modal').show();
                 $('.media-modal-backdrop').show();
@@ -168,8 +153,8 @@
 
         // Close the Diff viewer
         $(document).on('click', '.media-modal-close', function() {
-                $('.media-modal').hide();
-                $('.media-modal-backdrop').hide();
+            $('.media-modal').hide();
+            $('.media-modal-backdrop').hide();
         });
 
 
